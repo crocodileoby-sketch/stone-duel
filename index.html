@@ -126,7 +126,7 @@
   </div>
 
   <div id="help">
-    各レーンで 小1 / 中2 / 大3 / なし から1つ選ぶ。合計コストが上限まで配置可能。<br>
+    各レーンで 小1 / 中2 / 大3 / なし から1つ選ぶ。合計コストが上限まで配置可能。大を置いたレーンは次のターン大が使えません。<br>
     相手の配置はお互いに公開されるまで見えません。同じ強さなら相殺、違えば差分の強さが奥の相手要塞まで転がってダメージ。<br>
     要塞はレンガ3個、ダメージが3たまると破壊。10ターンで残存要塞が多い方の勝ち、同数なら延長戦(コスト3・2レーンまで・先に要塞を1つでも壊された方が負け)。
   </div>
@@ -229,6 +229,7 @@ let pendingOppTurn = null;
 let phase = 'lobby';
 let timeLeft = THINK_SECONDS;
 let timerHandle = null;
+let largeBannedLanes = [false, false, false]; // lanes where I placed 大 last turn (大 disabled here this turn)
 const prevRemain = { mine: [3, 3, 3], opp: [3, 3, 3] };
 
 function totalCost() { return myPlacement.reduce((a, b) => a + b, 0); }
@@ -245,7 +246,7 @@ function stoneBackground(v) {
 }
 function stoneSizePx(v) { return 24 + v * 8; }
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-function nextFrame() { return new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))); }
+function nextFrame() { return new Promise(r => setTimeout(r, 20)); }
 
 function fortressSvg(state) {
   if (state === 'full') {
@@ -413,8 +414,10 @@ function renderLaneControlsAll() {
       const activeWithout = myPlacement.filter((v, idx) => idx !== i && v > 0).length;
       const newActive = activeWithout + 1;
       const activeOk = !willActivate || activeWithout < maxLanes();
-      b.disabled = phase !== 'thinking' || locked || newTotal > budget() || !activeOk;
+      const bannedHere = size === 3 && largeBannedLanes[i];
+      b.disabled = phase !== 'thinking' || locked || newTotal > budget() || !activeOk || bannedHere;
       b.classList.toggle('selected', myPlacement[i] === size);
+      b.title = bannedHere ? '前ターンにこのレーンで大を使ったのでお休み' : '';
     });
     col.querySelector('.resetBtn').classList.toggle('selected', myPlacement[i] === 0);
   }
@@ -423,6 +426,7 @@ function renderLaneControlsAll() {
 function setLane(i, size) {
   if (phase !== 'thinking' || locked) return;
   if (size === myPlacement[i]) return;
+  if (size === 3 && largeBannedLanes[i]) return;
   const newTotal = totalCost() - myPlacement[i] + size;
   if (newTotal > budget()) return;
   const willActivate = myPlacement[i] === 0 && size > 0;
@@ -441,6 +445,7 @@ function initGame() {
   isOvertime = false;
   myFortDmg = [0, 0, 0];
   oppFortDmg = [0, 0, 0];
+  largeBannedLanes = [false, false, false];
   prevRemain.mine = [3, 3, 3];
   prevRemain.opp = [3, 3, 3];
   startTurn();
@@ -490,6 +495,7 @@ function lockIn() {
   clearInterval(timerHandle);
   decideBtn.disabled = true;
   decideBtn.textContent = '決定済み';
+  largeBannedLanes = myPlacement.map(v => v === 3);
   renderLaneControlsAll();
   sendMove({ turn: turnNumber, placement: myPlacement.slice() });
   if (pendingOppTurn === turnNumber) {

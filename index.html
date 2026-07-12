@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>石ころ心理戦</title>
+<style>
+  html, body {
+    margin: 0; min-height: 100%;
+    background: #14110f; color: #eee;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  #wrap { text-align: center; width: 100%; max-width: 480px; padding: 10px 12px 30px; box-sizing: border-box; }
+  h1 { font-size: 20px; margin: 10px 0 4px; letter-spacing: 2px; }
+  #status { min-height: 20px; font-size: 13px; color: #ffb877; margin-bottom: 6px; }
+  #shareBox { margin-bottom: 10px; }
+  #shareBox input {
+    width: 240px; padding: 6px; border-radius: 6px; border: 1px solid #444;
+    background: #1c1a17; color: #eee; font-size: 12px;
+  }
+  #shareBox button, #restartBtn, #decideBtn {
+    padding: 7px 14px; border-radius: 6px; border: none; background: #e08b3a;
+    color: #1a1208; font-weight: bold; cursor: pointer; font-size: 13px; margin-left: 6px;
+  }
+  #decideBtn:disabled { background: #5a4a37; color: #998; cursor: default; }
+  #turnInfo { font-size: 15px; margin: 6px 0 10px; color: #ffd9a8; }
+
+  #battlefield {
+    background: #1c1a17; border: 1px solid #332c22; border-radius: 12px;
+    padding: 10px 6px; margin-bottom: 8px;
+  }
+  .fortRow { display: flex; gap: 6px; }
+  .fortCell { flex: 1; display: flex; flex-direction: column; align-items: center; min-width: 0; }
+  .fortArt { line-height: 0; transition: transform 0.1s; }
+  .fortArt.hit { animation: fortShake 0.5s ease; }
+  @keyframes fortShake {
+    0% { transform: translateX(0) rotate(0); }
+    20% { transform: translateX(-4px) rotate(-4deg); }
+    40% { transform: translateX(4px) rotate(4deg); }
+    60% { transform: translateX(-3px) rotate(-2deg); }
+    80% { transform: translateX(2px) rotate(2deg); }
+    100% { transform: translateX(0) rotate(0); }
+  }
+
+  .trackRow { display: flex; gap: 6px; margin: 6px 0; }
+  .trackCol {
+    flex: 1; position: relative; height: 230px; background: #241f19;
+    border-radius: 8px; overflow: hidden; min-width: 0;
+  }
+  .trackCol::after {
+    content: ''; position: absolute; left: 4px; right: 4px; top: 50%;
+    height: 2px; background: #3a332a; transform: translateY(-50%);
+  }
+  .restSlot { position: absolute; left: 50%; transform: translate(-50%, -50%); }
+  .oppRest { top: 24px; }
+  .myRest { top: calc(100% - 24px); }
+
+  .stoneV, .traveler {
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    color: #1a1208; font-weight: bold; font-size: 12px; flex-shrink: 0;
+    box-shadow: inset -3px -4px 5px rgba(0,0,0,0.25), inset 2px 3px 4px rgba(255,255,255,0.55), 0 3px 6px rgba(0,0,0,0.35);
+  }
+  .traveler { position: absolute; left: 50%; top: 50%; }
+
+  #controlsRow { display: flex; gap: 6px; margin-bottom: 6px; }
+  .laneControlCol { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; }
+  .sizeBtns { display: flex; gap: 3px; }
+  .sizeBtn, .resetBtn {
+    padding: 5px 6px; border-radius: 6px; border: 1px solid #4a4034;
+    background: #241f19; color: #eee; font-size: 11px; cursor: pointer; min-width: 0;
+  }
+  .sizeBtn.selected { background: #e08b3a; color: #1a1208; border-color: #e08b3a; font-weight: bold; }
+  .sizeBtn:disabled { opacity: 0.35; cursor: default; }
+  .resetBtn { background: #3a1f1f; font-size: 10px; padding: 4px 8px; }
+  .resetBtn.selected { background: #6a2f2f; border-color: #8a3f3f; }
+
+  #controls { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 8px 0 6px; flex-wrap: wrap; }
+  #costInfo, #timerInfo { font-size: 13px; color: #ccc; }
+  #oppLockedTag { font-size: 12px; color: #8fd18f; min-height: 16px; margin-bottom: 6px; }
+  #help { font-size: 11px; color: #7d7266; margin-top: 10px; line-height: 1.7; }
+  #revealLog { font-size: 12px; color: #cbb; min-height: 18px; margin: 4px 0 4px; line-height: 1.6; }
+
+  .dmgFloat {
+    position: fixed; color: #ff6b6b; font-weight: bold; font-size: 14px;
+    pointer-events: none; z-index: 30; animation: floatUp 0.7s ease forwards;
+  }
+  @keyframes floatUp {
+    0% { opacity: 1; transform: translate(-50%, -50%); }
+    100% { opacity: 0; transform: translate(-50%, -150%); }
+  }
+
+  #overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.8);
+    display: none; align-items: center; justify-content: center; flex-direction: column; z-index: 10;
+  }
+  #overlay.show { display: flex; }
+  #overlay h2 { font-size: 30px; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <h1>🪨 石ころ心理戦 🪨</h1>
+  <div id="status">初期化中...</div>
+  <div id="shareBox" style="display:none;">
+    <input id="shareUrl" readonly>
+    <button id="copyBtn">URLコピー</button>
+  </div>
+  <div id="turnInfo">ターン - / 10</div>
+  <div id="oppLockedTag"></div>
+
+  <div id="battlefield">
+    <div class="fortRow" id="oppFortRow"></div>
+    <div class="trackRow" id="trackRow"></div>
+    <div class="fortRow" id="myFortRow"></div>
+  </div>
+
+  <div id="controlsRow"></div>
+
+  <div id="revealLog"></div>
+
+  <div id="controls">
+    <div id="costInfo">コスト 0 / 5</div>
+    <div id="timerInfo">残り 15秒</div>
+    <button id="decideBtn" disabled>決定</button>
+  </div>
+
+  <div id="help">
+    各レーンで 小1 / 中2 / 大3 / なし から1つ選ぶ。合計コストが上限まで配置可能。<br>
+    相手の配置はお互いに公開されるまで見えません。同じ強さなら相殺、違えば差分の強さが奥の相手要塞まで転がってダメージ。<br>
+    要塞はレンガ3個、ダメージが3たまると破壊。10ターンで残存要塞が多い方の勝ち、同数なら延長戦(コスト3・2レーンまで・先に要塞を1つでも壊された方が負け)。
+  </div>
+</div>
+
+<div id="overlay">
+  <h2 id="resultText"></h2>
+  <button id="restartBtn">もう一度対戦</button>
+</div>
+
+<script type="module">
+import { joinRoom } from 'https://esm.sh/@trystero-p2p/nostr';
+
+const LANES = 3;
+const NORMAL_BUDGET = 5;
+const OVERTIME_BUDGET = 3;
+const OVERTIME_MAX_LANES = 2;
+const FORTRESS_BREAK_DMG = 3;
+const TURN_LIMIT = 10;
+const THINK_SECONDS = 15;
+
+const statusEl = document.getElementById('status');
+const shareBox = document.getElementById('shareBox');
+const shareUrlInput = document.getElementById('shareUrl');
+const turnInfoEl = document.getElementById('turnInfo');
+const oppFortRowEl = document.getElementById('oppFortRow');
+const myFortRowEl = document.getElementById('myFortRow');
+const trackRowEl = document.getElementById('trackRow');
+const controlsRowEl = document.getElementById('controlsRow');
+const revealLogEl = document.getElementById('revealLog');
+const costInfoEl = document.getElementById('costInfo');
+const timerInfoEl = document.getElementById('timerInfo');
+const decideBtn = document.getElementById('decideBtn');
+const oppLockedTagEl = document.getElementById('oppLockedTag');
+const overlay = document.getElementById('overlay');
+const resultText = document.getElementById('resultText');
+
+// --- room setup ---
+let roomId = location.hash.replace('#', '');
+let isHost = false;
+if (!roomId) {
+  roomId = 'sd-' + Math.random().toString(36).slice(2, 9);
+  location.hash = roomId;
+  isHost = true;
+}
+shareUrlInput.value = location.href;
+shareBox.style.display = 'block';
+document.getElementById('copyBtn').addEventListener('click', () => {
+  navigator.clipboard.writeText(location.href);
+  document.getElementById('copyBtn').textContent = 'コピー済み!';
+});
+
+const room = joinRoom({ appId: 'stone-duel-onba-v1' }, roomId);
+const actMove = room.makeAction('move');
+const sendMove = actMove.send;
+
+let connected = false;
+let gameStarted = false;
+
+statusEl.textContent = isHost
+  ? 'URLを相手に共有して、接続を待っています...'
+  : '接続中...';
+
+setTimeout(() => {
+  if (!connected) {
+    statusEl.textContent += '(つながらない場合: 2人とも同じURLか確認 / Wi-Fiとモバイル回線で試す / ページを再読み込み)';
+  }
+}, 9000);
+
+room.onPeerJoin = () => {
+  connected = true;
+  statusEl.textContent = '相手が接続しました!';
+  if (!gameStarted) {
+    gameStarted = true;
+    initGame();
+  }
+};
+
+room.onPeerLeave = () => {
+  connected = false;
+  if (phase !== 'gameover') {
+    phase = 'gameover';
+    clearInterval(timerHandle);
+    statusEl.textContent = '相手が切断しました。';
+    resultText.textContent = '🔌 相手が切断しました';
+    overlay.classList.add('show');
+  }
+};
+
+// --- game state ---
+let turnNumber = 1;
+let isOvertime = false;
+let myFortDmg = [0, 0, 0];
+let oppFortDmg = [0, 0, 0];
+let myPlacement = [0, 0, 0]; // single stone size per lane (0 = none)
+let locked = false;
+let oppLockedFlag = false;
+let pendingOppPlacement = null;
+let pendingOppTurn = null;
+let phase = 'lobby';
+let timeLeft = THINK_SECONDS;
+let timerHandle = null;
+const prevRemain = { mine: [3, 3, 3], opp: [3, 3, 3] };
+
+function totalCost() { return myPlacement.reduce((a, b) => a + b, 0); }
+function budget() { return isOvertime ? OVERTIME_BUDGET : NORMAL_BUDGET; }
+function maxLanes() { return isOvertime ? OVERTIME_MAX_LANES : LANES; }
+function countAlive(dmgArr) { return dmgArr.filter(d => d < FORTRESS_BREAK_DMG).length; }
+function stoneColor(v) {
+  if (v <= 1) return '#9fd8ef';
+  if (v <= 2) return '#bcd88f';
+  return '#ffcf6b';
+}
+function stoneBackground(v) {
+  return `radial-gradient(circle at 32% 28%, rgba(255,255,255,0.9), rgba(255,255,255,0) 55%), ${stoneColor(v)}`;
+}
+function stoneSizePx(v) { return 24 + v * 8; }
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function nextFrame() { return new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))); }
+
+function fortressSvg(state) {
+  if (state === 'full') {
+    return `<svg viewBox="0 0 64 64" width="52" height="52">
+      <rect x="4" y="30" width="14" height="28" rx="3" fill="#ffe1cf" stroke="#c98b6b" stroke-width="1.6"/>
+      <polygon points="11,16 2,30 20,30" fill="#ff9eb5" stroke="#c96f8b" stroke-width="1.6"/>
+      <rect x="46" y="30" width="14" height="28" rx="3" fill="#ffe1cf" stroke="#c98b6b" stroke-width="1.6"/>
+      <polygon points="53,16 44,30 62,30" fill="#ff9eb5" stroke="#c96f8b" stroke-width="1.6"/>
+      <rect x="17" y="20" width="30" height="38" rx="4" fill="#fff0e2" stroke="#c98b6b" stroke-width="1.6"/>
+      <polygon points="32,6 18,20 46,20" fill="#ffb6c9" stroke="#c96f8b" stroke-width="1.6"/>
+      <path d="M26 58 v-11 a6 6 0 0 1 12 0 v11 z" fill="#8a6142"/>
+      <circle cx="25" cy="32" r="3.2" fill="#8fd1e8" stroke="#5a9fc0" stroke-width="1"/>
+      <circle cx="39" cy="32" r="3.2" fill="#8fd1e8" stroke="#5a9fc0" stroke-width="1"/>
+      <line x1="32" y1="6" x2="32" y2="0" stroke="#c98b6b" stroke-width="1.6"/>
+      <polygon points="32,0 40,2.5 32,5" fill="#ff6b81"/>
+    </svg>`;
+  }
+  if (state === 'damaged') {
+    return `<svg viewBox="0 0 64 64" width="52" height="52">
+      <rect x="4" y="30" width="14" height="28" rx="3" fill="#e3c9b8" stroke="#8a6a52" stroke-width="1.6"/>
+      <polygon points="11,16 2,30 20,30" fill="#e0a7b5" stroke="#8a5c68" stroke-width="1.6"/>
+      <rect x="46" y="33" width="14" height="25" rx="3" fill="#e3c9b8" stroke="#8a6a52" stroke-width="1.6" transform="rotate(8 53 45)"/>
+      <rect x="17" y="20" width="30" height="38" rx="4" fill="#ede0d2" stroke="#8a6a52" stroke-width="1.6"/>
+      <polygon points="32,6 18,20 46,20" fill="#e0a7b5" stroke="#8a5c68" stroke-width="1.6"/>
+      <path d="M20 30 L27 38 L22 42 L30 50" fill="none" stroke="#8a6a52" stroke-width="1.4"/>
+      <path d="M26 58 v-11 a6 6 0 0 1 12 0 v11 z" fill="#6b4a30"/>
+      <circle cx="25" cy="32" r="3" fill="#5a6a70"/>
+      <circle cx="39" cy="32" r="3" fill="#5a6a70"/>
+      <line x1="32" y1="6" x2="32" y2="0" stroke="#8a6a52" stroke-width="1.6"/>
+      <polygon points="32,0 39,4 32,4.5" fill="#c96f81"/>
+      <circle cx="12" cy="24" r="2" fill="#bbb" opacity="0.6"/>
+      <circle cx="16" cy="20" r="1.4" fill="#ccc" opacity="0.5"/>
+    </svg>`;
+  }
+  return `<svg viewBox="0 0 64 64" width="52" height="52">
+    <ellipse cx="32" cy="56" rx="26" ry="6" fill="#3a332a"/>
+    <rect x="10" y="42" width="12" height="14" rx="2" fill="#7a6a55" stroke="#4a3f30" stroke-width="1.4" transform="rotate(-12 16 49)"/>
+    <rect x="26" y="38" width="14" height="18" rx="2" fill="#8a7862" stroke="#4a3f30" stroke-width="1.4" transform="rotate(6 33 47)"/>
+    <rect x="42" y="44" width="11" height="12" rx="2" fill="#7a6a55" stroke="#4a3f30" stroke-width="1.4" transform="rotate(15 47 50)"/>
+    <polygon points="20,44 24,36 28,44" fill="#a89478" opacity="0.8"/>
+    <circle cx="20" cy="32" r="4" fill="#bbb" opacity="0.35"/>
+    <circle cx="30" cy="26" r="5" fill="#ccc" opacity="0.3"/>
+    <circle cx="40" cy="30" r="3.5" fill="#bbb" opacity="0.3"/>
+  </svg>`;
+}
+function fortStateFor(remaining) {
+  if (remaining >= 3) return 'full';
+  if (remaining <= 0) return 'destroyed';
+  return 'damaged';
+}
+
+function buildBoard() {
+  oppFortRowEl.innerHTML = '';
+  myFortRowEl.innerHTML = '';
+  trackRowEl.innerHTML = '';
+  controlsRowEl.innerHTML = '';
+
+  for (let i = 0; i < LANES; i++) {
+    const oppCell = document.createElement('div');
+    oppCell.className = 'fortCell';
+    oppCell.innerHTML = `<div class="fortArt oppFort" data-lane="${i}"></div>`;
+    oppFortRowEl.appendChild(oppCell);
+
+    const myCell = document.createElement('div');
+    myCell.className = 'fortCell';
+    myCell.innerHTML = `<div class="fortArt myFort" data-lane="${i}"></div>`;
+    myFortRowEl.appendChild(myCell);
+
+    const track = document.createElement('div');
+    track.className = 'trackCol';
+    track.dataset.lane = i;
+    track.innerHTML = `
+      <div class="restSlot oppRest" data-lane="${i}"></div>
+      <div class="restSlot myRest" data-lane="${i}"></div>
+    `;
+    trackRowEl.appendChild(track);
+
+    const col = document.createElement('div');
+    col.className = 'laneControlCol';
+    col.innerHTML = `
+      <div class="sizeBtns" data-lane="${i}">
+        <button class="sizeBtn" data-lane="${i}" data-size="1">小1</button>
+        <button class="sizeBtn" data-lane="${i}" data-size="2">中2</button>
+        <button class="sizeBtn" data-lane="${i}" data-size="3">大3</button>
+      </div>
+      <button class="resetBtn" data-lane="${i}">なし</button>
+    `;
+    controlsRowEl.appendChild(col);
+    col.querySelectorAll('.sizeBtn').forEach(b => {
+      b.addEventListener('click', () => setLane(i, parseInt(b.dataset.size, 10)));
+    });
+    col.querySelector('.resetBtn').addEventListener('click', () => setLane(i, 0));
+  }
+}
+buildBoard();
+
+function stoneNode(value) {
+  const d = document.createElement('div');
+  d.className = 'stoneV';
+  const px = stoneSizePx(value);
+  d.style.width = px + 'px';
+  d.style.height = px + 'px';
+  d.style.background = stoneBackground(value);
+  d.textContent = value;
+  return d;
+}
+
+function renderFortress(sideKey, laneIndex) {
+  const dmgArr = sideKey === 'mine' ? myFortDmg : oppFortDmg;
+  const newRemaining = Math.max(0, 3 - dmgArr[laneIndex]);
+  const oldRemaining = prevRemain[sideKey][laneIndex];
+  const el = document.querySelector(`.fortArt.${sideKey === 'mine' ? 'myFort' : 'oppFort'}[data-lane="${laneIndex}"]`);
+  el.innerHTML = fortressSvg(fortStateFor(newRemaining));
+  if (newRemaining < oldRemaining) {
+    el.classList.remove('hit');
+    void el.offsetWidth;
+    el.classList.add('hit');
+  }
+  prevRemain[sideKey][laneIndex] = newRemaining;
+}
+
+function renderAllFortStacks() {
+  for (let i = 0; i < LANES; i++) {
+    renderFortress('mine', i);
+    renderFortress('opp', i);
+  }
+}
+
+function renderMyRest(i) {
+  const el = document.querySelector(`.myRest[data-lane="${i}"]`);
+  el.innerHTML = '';
+  if (myPlacement[i] === 0) {
+    el.innerHTML = '<span style="color:#665;font-size:11px;">なし</span>';
+  } else {
+    el.appendChild(stoneNode(myPlacement[i]));
+  }
+}
+
+function renderOppRestHidden(i) {
+  document.querySelector(`.oppRest[data-lane="${i}"]`).innerHTML = '<span style="font-size:18px;color:#554;">？</span>';
+}
+
+function renderOppRestRevealed(i, value) {
+  const el = document.querySelector(`.oppRest[data-lane="${i}"]`);
+  el.innerHTML = '';
+  if (value === 0) {
+    el.innerHTML = '<span style="color:#665;font-size:11px;">なし</span>';
+  } else {
+    el.appendChild(stoneNode(value));
+  }
+}
+
+function renderControls() {
+  costInfoEl.textContent = `コスト ${totalCost()} / ${budget()}`;
+  timerInfoEl.textContent = `残り ${timeLeft}秒`;
+}
+
+function renderLaneControlsAll() {
+  for (let i = 0; i < LANES; i++) {
+    const col = controlsRowEl.children[i];
+    col.querySelectorAll('.sizeBtn').forEach(b => {
+      const size = parseInt(b.dataset.size, 10);
+      const newTotal = totalCost() - myPlacement[i] + size;
+      const willActivate = myPlacement[i] === 0;
+      const activeWithout = myPlacement.filter((v, idx) => idx !== i && v > 0).length;
+      const newActive = activeWithout + 1;
+      const activeOk = !willActivate || activeWithout < maxLanes();
+      b.disabled = phase !== 'thinking' || locked || newTotal > budget() || !activeOk;
+      b.classList.toggle('selected', myPlacement[i] === size);
+    });
+    col.querySelector('.resetBtn').classList.toggle('selected', myPlacement[i] === 0);
+  }
+}
+
+function setLane(i, size) {
+  if (phase !== 'thinking' || locked) return;
+  if (size === myPlacement[i]) return;
+  const newTotal = totalCost() - myPlacement[i] + size;
+  if (newTotal > budget()) return;
+  const willActivate = myPlacement[i] === 0 && size > 0;
+  const activeWithout = myPlacement.filter((v, idx) => idx !== i && v > 0).length;
+  if (willActivate && activeWithout >= maxLanes()) return;
+  myPlacement[i] = size;
+  renderMyRest(i);
+  renderControls();
+  renderLaneControlsAll();
+}
+
+decideBtn.addEventListener('click', () => lockIn());
+
+function initGame() {
+  turnNumber = 1;
+  isOvertime = false;
+  myFortDmg = [0, 0, 0];
+  oppFortDmg = [0, 0, 0];
+  prevRemain.mine = [3, 3, 3];
+  prevRemain.opp = [3, 3, 3];
+  startTurn();
+}
+
+function startTurn() {
+  phase = 'thinking';
+  myPlacement = [0, 0, 0];
+  locked = false;
+  oppLockedFlag = false;
+  pendingOppPlacement = null;
+  pendingOppTurn = null;
+  timeLeft = THINK_SECONDS;
+  oppLockedTagEl.textContent = '';
+  revealLogEl.textContent = '';
+  decideBtn.disabled = false;
+  decideBtn.textContent = '決定';
+  statusEl.textContent = isOvertime ? '延長戦: 配置を決めてください' : '配置を決めてください';
+  turnInfoEl.textContent = isOvertime
+    ? `延長戦 EX${turnNumber - TURN_LIMIT}`
+    : `ターン ${turnNumber} / ${TURN_LIMIT}`;
+
+  for (let i = 0; i < LANES; i++) {
+    document.querySelectorAll('.trackCol')[i].querySelectorAll('.traveler').forEach(e => e.remove());
+    document.querySelectorAll('.restSlot').forEach(e => e.style.visibility = 'visible');
+    renderMyRest(i);
+    renderOppRestHidden(i);
+  }
+  renderAllFortStacks();
+  renderControls();
+  renderLaneControlsAll();
+
+  clearInterval(timerHandle);
+  timerHandle = setInterval(() => {
+    timeLeft--;
+    renderControls();
+    if (timeLeft <= 0) {
+      clearInterval(timerHandle);
+      lockIn();
+    }
+  }, 1000);
+}
+
+function lockIn() {
+  if (locked || phase !== 'thinking') return;
+  locked = true;
+  clearInterval(timerHandle);
+  decideBtn.disabled = true;
+  decideBtn.textContent = '決定済み';
+  renderLaneControlsAll();
+  sendMove({ turn: turnNumber, placement: myPlacement.slice() });
+  if (pendingOppTurn === turnNumber) {
+    resolveTurn();
+  } else {
+    statusEl.textContent = '相手の入力を待っています...';
+  }
+}
+
+actMove.onMessage = (msg) => {
+  pendingOppPlacement = msg.placement;
+  pendingOppTurn = msg.turn;
+  if (!oppLockedFlag) {
+    oppLockedFlag = true;
+    oppLockedTagEl.textContent = '相手: 決定済み';
+  }
+  if (locked && pendingOppTurn === turnNumber) {
+    resolveTurn();
+  }
+};
+
+function createTraveler(value) {
+  const d = document.createElement('div');
+  d.className = 'traveler';
+  const px = stoneSizePx(value);
+  d.style.width = px + 'px';
+  d.style.height = px + 'px';
+  d.style.background = stoneBackground(value);
+  d.textContent = value;
+  d.dataset.rot = '0';
+  d.style.transform = 'translate(-50%, -50%) rotate(0deg)';
+  return d;
+}
+function positionTraveler(el, topPx, animated, spinDeg) {
+  el.style.transition = animated
+    ? 'top 0.6s ease, width 0.5s ease, height 0.5s ease, transform 0.6s linear'
+    : 'none';
+  el.style.top = topPx + 'px';
+  if (spinDeg) {
+    const next = parseFloat(el.dataset.rot || '0') + spinDeg;
+    el.dataset.rot = next;
+    el.style.transform = `translate(-50%, -50%) rotate(${next}deg)`;
+  }
+}
+function resizeTraveler(el, value) {
+  el.style.width = stoneSizePx(value) + 'px';
+  el.style.height = stoneSizePx(value) + 'px';
+  el.textContent = value;
+}
+
+function spawnDamageFloat(sideKey, laneIndex, dmg) {
+  const fortEl = document.querySelector(`.fortArt.${sideKey === 'mine' ? 'myFort' : 'oppFort'}[data-lane="${laneIndex}"]`);
+  const rect = fortEl.getBoundingClientRect();
+  const floatEl = document.createElement('div');
+  floatEl.className = 'dmgFloat';
+  floatEl.textContent = '-' + dmg;
+  floatEl.style.left = (rect.left + rect.width / 2) + 'px';
+  floatEl.style.top = rect.top + 'px';
+  document.body.appendChild(floatEl);
+  setTimeout(() => floatEl.remove(), 750);
+}
+
+function applyFortressHit(sideKey, laneIndex, dmg) {
+  if (sideKey === 'mine') myFortDmg[laneIndex] += dmg;
+  else oppFortDmg[laneIndex] += dmg;
+  renderFortress(sideKey, laneIndex);
+  spawnDamageFloat(sideKey, laneIndex, dmg);
+}
+
+// vertical battlefield: opponent's side is near top (small top px), mine is near bottom (top px close to trackHeight)
+async function animateLane(i, myVal, oppVal) {
+  const trackEl = document.querySelectorAll('.trackCol')[i];
+  const myRestEl = trackEl.querySelector('.myRest');
+  const oppRestEl = trackEl.querySelector('.oppRest');
+  if (myVal === 0 && oppVal === 0) return;
+
+  myRestEl.style.visibility = 'hidden';
+  oppRestEl.style.visibility = 'hidden';
+  const trackHeight = trackEl.clientHeight;
+  const edge = 20;
+
+  if (myVal > 0 && oppVal > 0) {
+    const myT = createTraveler(myVal); trackEl.appendChild(myT);
+    const opT = createTraveler(oppVal); trackEl.appendChild(opT);
+    positionTraveler(myT, trackHeight - edge);
+    positionTraveler(opT, edge);
+    await nextFrame();
+    positionTraveler(myT, trackHeight / 2, true, -380);
+    positionTraveler(opT, trackHeight / 2, true, 380);
+    await sleep(650);
+    if (myVal === oppVal) {
+      myT.style.opacity = '0'; opT.style.opacity = '0';
+      await sleep(300);
+    } else if (myVal > oppVal) {
+      // I win: residual continues UP toward opponent fortress (top edge)
+      opT.style.opacity = '0';
+      const diff = myVal - oppVal;
+      resizeTraveler(myT, diff);
+      positionTraveler(myT, edge, true, -340);
+      await sleep(560);
+      applyFortressHit('opp', i, diff);
+      await sleep(280);
+      myT.style.opacity = '0';
+      await sleep(220);
+    } else {
+      // opponent wins: residual continues DOWN toward my fortress (bottom edge)
+      myT.style.opacity = '0';
+      const diff = oppVal - myVal;
+      resizeTraveler(opT, diff);
+      positionTraveler(opT, trackHeight - edge, true, 340);
+      await sleep(560);
+      applyFortressHit('mine', i, diff);
+      await sleep(280);
+      opT.style.opacity = '0';
+      await sleep(220);
+    }
+    myT.remove(); opT.remove();
+  } else if (myVal > 0) {
+    const myT = createTraveler(myVal); trackEl.appendChild(myT);
+    positionTraveler(myT, trackHeight - edge);
+    await nextFrame();
+    positionTraveler(myT, edge, true, -560);
+    await sleep(750);
+    applyFortressHit('opp', i, myVal);
+    await sleep(280);
+    myT.style.opacity = '0';
+    await sleep(220);
+    myT.remove();
+  } else {
+    const opT = createTraveler(oppVal); trackEl.appendChild(opT);
+    positionTraveler(opT, edge);
+    await nextFrame();
+    positionTraveler(opT, trackHeight - edge, true, 560);
+    await sleep(750);
+    applyFortressHit('mine', i, oppVal);
+    await sleep(280);
+    opT.style.opacity = '0';
+    await sleep(220);
+    opT.remove();
+  }
+}
+
+async function resolveTurn() {
+  phase = 'reveal';
+  clearInterval(timerHandle);
+  renderLaneControlsAll();
+  statusEl.textContent = '結果発表!';
+
+  const prevMyAlive = countAlive(myFortDmg);
+  const prevOppAlive = countAlive(oppFortDmg);
+  const oppPlacement = pendingOppPlacement;
+
+  const logs = [];
+  for (let i = 0; i < LANES; i++) {
+    const my = myPlacement[i], opp = oppPlacement[i];
+    if (my === 0 && opp === 0) continue;
+    if (my === opp) logs.push(`レーン${i + 1}: 相殺 (${my} vs ${opp})`);
+    else if (my > opp) logs.push(`レーン${i + 1}: 押し勝ち! 相手要塞に${my - opp}ダメージ`);
+    else logs.push(`レーン${i + 1}: 押し負け… 自要塞に${opp - my}ダメージ`);
+  }
+  revealLogEl.innerHTML = logs.length ? logs.join('<br>') : '両者とも配置なし';
+
+  for (let i = 0; i < LANES; i++) renderOppRestRevealed(i, oppPlacement[i]);
+  await sleep(600);
+
+  await Promise.all([0, 1, 2].map(i => animateLane(i, myPlacement[i], oppPlacement[i])));
+
+  await sleep(500);
+  afterResolve(prevMyAlive, prevOppAlive);
+}
+
+function afterResolve(prevMyAlive, prevOppAlive) {
+  const myAlive = countAlive(myFortDmg);
+  const oppAlive = countAlive(oppFortDmg);
+
+  if (myAlive === 0 && oppAlive === 0) { endGame('draw'); return; }
+  if (myAlive === 0) { endGame('lose'); return; }
+  if (oppAlive === 0) { endGame('win'); return; }
+
+  if (isOvertime) {
+    const myLost = myAlive < prevMyAlive;
+    const oppLost = oppAlive < prevOppAlive;
+    if (myLost && !oppLost) { endGame('lose'); return; }
+    if (oppLost && !myLost) { endGame('win'); return; }
+    if (myLost && oppLost) {
+      if (myAlive > oppAlive) { endGame('win'); return; }
+      if (myAlive < oppAlive) { endGame('lose'); return; }
+    }
+    turnNumber++;
+    startTurn();
+    return;
+  }
+
+  if (turnNumber >= TURN_LIMIT) {
+    if (myAlive > oppAlive) { endGame('win'); return; }
+    if (myAlive < oppAlive) { endGame('lose'); return; }
+    isOvertime = true;
+    turnNumber++;
+    startTurn();
+    return;
+  }
+
+  turnNumber++;
+  startTurn();
+}
+
+function endGame(result) {
+  phase = 'gameover';
+  clearInterval(timerHandle);
+  overlay.classList.add('show');
+  if (result === 'win') resultText.textContent = '🎉 勝利!';
+  else if (result === 'lose') resultText.textContent = '💀 敗北...';
+  else resultText.textContent = '🤝 引き分け';
+}
+
+document.getElementById('restartBtn').addEventListener('click', () => {
+  location.reload();
+});
+</script>
+</body>
+</html>

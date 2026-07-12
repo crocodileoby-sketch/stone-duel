@@ -34,6 +34,11 @@
   .fortCell { flex: 1; display: flex; flex-direction: column; align-items: center; min-width: 0; }
   .fortArt { line-height: 0; transition: transform 0.1s; }
   .fortArt.hit { animation: fortShake 0.5s ease; }
+  .fortHp {
+    font-size: 11px; font-weight: bold; color: #ffd9a8; background: #2a241d;
+    border: 1px solid #4a4034; border-radius: 8px; padding: 1px 7px; margin: 2px 0;
+  }
+  .fortHp.zero { color: #998; }
   @keyframes fortShake {
     0% { transform: translateX(0) rotate(0); }
     20% { transform: translateX(-4px) rotate(-4deg); }
@@ -307,12 +312,12 @@ function buildBoard() {
   for (let i = 0; i < LANES; i++) {
     const oppCell = document.createElement('div');
     oppCell.className = 'fortCell';
-    oppCell.innerHTML = `<div class="fortArt oppFort" data-lane="${i}"></div>`;
+    oppCell.innerHTML = `<div class="fortArt oppFort" data-lane="${i}"></div><div class="fortHp oppFortHp" data-lane="${i}"></div>`;
     oppFortRowEl.appendChild(oppCell);
 
     const myCell = document.createElement('div');
     myCell.className = 'fortCell';
-    myCell.innerHTML = `<div class="fortArt myFort" data-lane="${i}"></div>`;
+    myCell.innerHTML = `<div class="fortHp myFortHp" data-lane="${i}"></div><div class="fortArt myFort" data-lane="${i}"></div>`;
     myFortRowEl.appendChild(myCell);
 
     const track = document.createElement('div');
@@ -358,13 +363,17 @@ function renderFortress(sideKey, laneIndex) {
   const dmgArr = sideKey === 'mine' ? myFortDmg : oppFortDmg;
   const newRemaining = Math.max(0, 3 - dmgArr[laneIndex]);
   const oldRemaining = prevRemain[sideKey][laneIndex];
-  const el = document.querySelector(`.fortArt.${sideKey === 'mine' ? 'myFort' : 'oppFort'}[data-lane="${laneIndex}"]`);
+  const suffix = sideKey === 'mine' ? 'myFort' : 'oppFort';
+  const el = document.querySelector(`.fortArt.${suffix}[data-lane="${laneIndex}"]`);
   el.innerHTML = fortressSvg(fortStateFor(newRemaining));
   if (newRemaining < oldRemaining) {
     el.classList.remove('hit');
     void el.offsetWidth;
     el.classList.add('hit');
   }
+  const hpEl = document.querySelector(`.fortHp.${suffix}Hp[data-lane="${laneIndex}"]`);
+  hpEl.textContent = `HP ${newRemaining}/3`;
+  hpEl.classList.toggle('zero', newRemaining === 0);
   prevRemain[sideKey][laneIndex] = newRemaining;
 }
 
